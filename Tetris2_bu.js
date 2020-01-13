@@ -23,7 +23,7 @@ var makeEventBinder = function(name){
         tetris
         .__end
 */
-
+var i = 0
 var TetrisPrototype = {
     options: {},
 
@@ -43,19 +43,21 @@ var TetrisPrototype = {
     end: makeEventTrigger('end'),
     onEnd: makeEventBinder('end'),
     figureDrop: makeEventTrigger('figureDrop'),
-    onFugureDropped: makeEventBinder('figureDrop'),
+    onFigureDropped: makeEventBinder('figureDrop'),
     figureDrop: makeEventTrigger('figureDrop'),
-    onFugureDropped: makeEventBinder('figureDrop'),
+    onFigureDropped: makeEventBinder('figureDrop'),
+    // Why?
     figureMove: makeEventTrigger('figureMove'),
-    onFugureMoved: makeEventBinder('figureMove'),
+    onFigureMoved: makeEventBinder('figureMove'),
 
 
     figures: ['i', 'l', 'j', 'o', 's', 'z'],
+    occupied_positions: [],
     figure_position: null,
     figure_type: null,
     figureCanShow: function(){
         // XXX get filed state...
-        return true }, 
+        return !this.occupied_positions[0]}, 
     figureShow: function(type){
         type = this.figure_type = 
             (type == 'random' || type === undefined) ?
@@ -67,12 +69,23 @@ var TetrisPrototype = {
         console.log(`Figure ${type} @ ${this.figure_position}`)
         return this },
     figureCanMove: function(){
-        return this.figure_position >= this.options.field_size },
+        console.log(this.occupied_positions[this.figure_position])
+        return (this.figure_position >= this.options.field_size ||
+            !!this.occupied_positions[this.figure_position + 1]) },
     figureMove: function(){
         this.figure_position += 1
-        this.figureShow()
+        this.figureShow(this.figure_type)
         return this },
 
+    figureFreeze: function(){
+        this.occupied_positions[this.figure_position] = true
+        this.figure_position = null
+        return this
+    },
+
+    clearLines: function(){
+        return this
+    },
 
     startDebug: function(){
         var that = this
@@ -83,7 +96,7 @@ var TetrisPrototype = {
                 that[a](function(...args){
                     console.log(`DEBUG: called: this.${a}(...${ args })`) }) })
         return this },
-}
+}   
 var Tetris = function(options){
     return Object.assign(
         Object.create(TetrisPrototype),
@@ -99,14 +112,13 @@ var tetris = new Tetris({
     field_size: 20,
     field_width: 10,
     level: 1,
-    frame_speed: 200,
+    frame_speed: 5000,
+    tick_interval: null,
 })
-
 
 tetris
     .clear()
     .showField()
-    .figureShow('random')
     .initUserControl({
         turn_cw: '',
         turn_ccw: '',
@@ -116,26 +128,26 @@ tetris
         pause: '',
         restart: '',
     })
-    .onEnd(function(){
-        this
-            .clear()
-            .initUserControl() })
-    .onEnd(function(){
-        console.log('GAME OVER!') })
-    .onFugureDropped(function(){
+    .onFigureDropped(function(){
         this   
             .figureFreeze()
             .clearLines()
-        this.figureCanShow() ?
-            this.showFigure('random')
+        !!this.figureCanShow() ?
+            this.figureShow('random')
             : this.end() })
     .onTick(function(){
         !this.figureCanMove() ?
             this.figureMove()
-            : this.figureDropped() 
-        setInterval(this.tick, this.options.frame_speed })
+            : this.figureDrop()
+        this.options.tick_interval = setInterval(this.tick(), this.options.frame_speed )})
+    .onEnd(function(){
+        this
+            .clear()
+            .initUserControl() 
+        console.log('GAME OVER!') 
+            clearInterval(this.options.tick_interval)})
     .onStart(function(){
-        this.showFigure('random')
+        this.figureShow('random')
         this.tick()
     })
     .start()
